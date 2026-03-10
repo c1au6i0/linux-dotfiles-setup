@@ -51,7 +51,7 @@ Automatically overwrites existing configuration files without prompting (useful 
 
 The script will:
 
-1. Check internet connectivity using available tools (`curl`, `wget`, or `ping`)
+1. Check internet connectivity using available tools (`ping`)
 2. Install `zsh` via the system package manager (`brew`, `apt`, `dnf`, or `yum`)
 3. Install Oh My Zsh
 4. Install `pixi`
