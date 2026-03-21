@@ -24,8 +24,5 @@ export SYSTEMD_EDITOR=nvim
 # zoxide (smart cd)
 eval "$(zoxide init zsh)"
 
-# Auto-Warpify (safe no-op if not using Warp)
-[[ "$-" == *i* ]] && printf 'P$f{"hook": "SourcedRcFileForWarp", "value": { "shell": "zsh", "uname": "Linux" }}\x9c'
-
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 # [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
