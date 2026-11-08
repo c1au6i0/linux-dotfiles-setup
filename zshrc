@@ -11,7 +11,7 @@ setopt HIST_IGNORE_SPACE
 plugins=(git)
 [[ ! -r "$ZSH/oh-my-zsh.sh" ]] || source "$ZSH/oh-my-zsh.sh"
 if [[ "${TERM:-}" == linux ]]; then
-  PROMPT='%n@%m:%~%# '
+  PROMPT='%m [%1/] > '
   RPROMPT=''
 fi
 if command -v nvim >/dev/null 2>&1; then
