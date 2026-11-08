@@ -125,9 +125,10 @@ This compatibility setup does not diagnose intermittent SSH or input lag.
 ## Local Linux console
 
 When you log in directly on the server's text console (`TERM=linux`), Zsh uses
-a simple prompt with your username, hostname, and current directory. It avoids
-the decorative symbols that console fonts may not display. You still use Zsh,
-zoxide, and the other shell features.
+a simple prompt with the machine name and current folder, such as
+`epsi-jon [linux-dotfiles-setup] >`. At home it shows `epsi-jon [heverz] >`,
+without a tilde. It avoids decorative symbols that console fonts may not display.
+You still use Zsh, zoxide, and the other shell features.
 
 Kitty and Ghostty sessions keep the agnoster prompt; select MesloLGS NF in your
 local terminal for its symbols. Detection happens each time Zsh starts, so you
