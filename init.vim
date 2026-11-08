@@ -3,7 +3,11 @@
 "*****************************************************************************
 "" Vim-Plug core
 "*****************************************************************************
-let vimplug_exists=expand('~/.config/nvim/autoload/plug.vim')
+let s:config_dir = stdpath('config')
+let vimplug_exists = s:config_dir . '/autoload/plug.vim'
+if executable('nvim-python')
+  let g:python3_host_prog = exepath('nvim-python')
+endif
 if has('win32')&&!has('win64')
   let curl_exists=expand('C:\Windows\Sysnative\curl.exe')
 else
@@ -25,13 +29,13 @@ if !filereadable(vimplug_exists)
   silent exec "!"curl_exists" -fLo " . shellescape(vimplug_exists) . " --create-dirs https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim"
   let g:not_finish_vimplug = "yes"
 
-  autocmd VimEnter * PlugInstall
+  autocmd VimEnter * ++once PlugInstall --sync
 endif
 
 set clipboard+=unnamedplus
 
 " Required:
-call plug#begin(expand('~/.config/nvim/plugged'))
+call plug#begin(s:config_dir . '/plugged')
 
 "*****************************************************************************
 "" Plug install packages
@@ -61,11 +65,11 @@ else
   Plug 'junegunn/fzf', { 'dir': '~/.fzf', 'do': './install --bin' }
   Plug 'junegunn/fzf.vim'
 endif
-let g:make = 'gmake'
-if exists('make')
-        let g:make = 'make'
+" vimproc needs a compiler; enable only on machines with build tools.
+if executable('cc') && (executable('make') || executable('gmake'))
+  let g:make = executable('make') ? 'make' : 'gmake'
+  Plug 'Shougo/vimproc.vim', {'do': g:make}
 endif
-Plug 'Shougo/vimproc.vim', {'do': g:make}
 
 "" Vim-Session
 Plug 'xolox/vim-misc'
@@ -83,8 +87,8 @@ Plug 'honza/vim-snippets'
 "*****************************************************************************
 
 "" Include user's extra bundle
-if filereadable(expand("~/.config/nvim/local_bundles.vim"))
-  source ~/.config/nvim/local_bundles.vim
+if filereadable(s:config_dir . "/local_bundles.vim")
+  execute "source " . fnameescape(s:config_dir . "/local_bundles.vim")
 endif
 
 call plug#end()
@@ -132,7 +136,7 @@ else
 endif
 
 " session management
-let g:session_directory = "~/.config/nvim/session"
+let g:session_directory = s:config_dir . "/session"
 let g:session_autoload = "no"
 let g:session_autosave = "no"
 let g:session_command_aliases = 1
@@ -260,9 +264,9 @@ command! FixWhitespace :%s/\s\+$//e
 "*****************************************************************************
 if !exists('*s:setupWrapping')
   function s:setupWrapping()
-    set wrap
-    set wm=2
-    set textwidth=79
+    setlocal wrap
+    setlocal wm=2
+    setlocal textwidth=79
   endfunction
 endif
 
@@ -430,8 +434,8 @@ nnoremap <Leader>o :.GBrowse<CR>
 "*****************************************************************************
 
 "" Include user's local vim config
-if filereadable(expand("~/.config/nvim/local_init.vim"))
-  source ~/.config/nvim/local_init.vim
+if filereadable(s:config_dir . "/local_init.vim")
+  execute "source " . fnameescape(s:config_dir . "/local_init.vim")
 endif
 
 "*****************************************************************************
@@ -474,8 +478,8 @@ else
   let g:airline_symbols.linenr = ''
 endif
 
-" Fix for Ghostty invisible text
+" True-color support
 set termguicolors
-let $TERM = 'xterm-256color'
+" Preserve terminal detection; apply emulator workarounds locally if needed.
 
 
