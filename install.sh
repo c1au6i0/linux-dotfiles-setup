@@ -7,13 +7,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Check for non-interactive mode
 INTERACTIVE=true
 CHANGE_SHELL=false
+VERBOSE=false
 for arg in "$@"; do
   case "$arg" in
     -y|--non-interactive) INTERACTIVE=false ;;
     --change-shell) CHANGE_SHELL=true ;;
+    -v|--verbose) VERBOSE=true ;;
     -h|--help)
-      echo "Usage: bash install.sh [-y|--non-interactive] [--change-shell]"
+      echo "Usage: bash install.sh [-y|--non-interactive] [--change-shell] [-v|--verbose]"
       echo "-y accepts config replacement; --change-shell makes zsh the login shell."
+      echo "-v streams installation output to the terminal and the log."
       exit 0 ;;
     *) echo "Unknown option: $arg" >&2; exit 2 ;;
   esac
@@ -26,6 +29,16 @@ log()  { echo "[$(date '+%H:%M:%S')] $*" | tee -a "$LOGFILE"; }
 die()  { log "ERROR: $*"; log "Check $LOGFILE for details. Exiting."; exit 1; }
 warn() { WARNINGS+=("$*"); log "WARNING: $*"; }
 skip() { log "    Already installed, skipping"; }
+
+# Preserve the command's exit status (including in verbose pipelines).
+# Arguments stay separate so quoted paths and environment assignments are safe.
+run_logged() {
+  if [ "$VERBOSE" = true ]; then
+    "$@" 2>&1 | tee -a "$LOGFILE"
+  else
+    "$@" >> "$LOGFILE" 2>&1
+  fi
+}
 
 ask_overwrite() {
   local file="$1"
@@ -49,6 +62,11 @@ ask_overwrite() {
 }
 
 log "Starting dotfiles install. Full log at $LOGFILE"
+log "First-time setup can take several minutes; downloads and package solving may be quiet."
+if [ "$VERBOSE" != true ]; then
+  log "For live details in another terminal: tail -f \"$LOGFILE\""
+  log "Or rerun with --verbose to show installation output here."
+fi
 
 # --- Must not run as root ---
 if [ "$EUID" -eq 0 ]; then
@@ -84,11 +102,11 @@ for tool in zsh curl git file; do
 done
 if [ "${#MISSING[@]}" -gt 0 ]; then
   log "==> Installing bootstrap dependencies: ${MISSING[*]}"
-  "${PKG_UPDATE[@]}" >> "$LOGFILE" 2>&1 || die "Package metadata refresh failed."
-  "${PKG_INSTALL[@]}" "${MISSING[@]}" >> "$LOGFILE" 2>&1 || die "Bootstrap install failed."
+  run_logged "${PKG_UPDATE[@]}" || die "Package metadata refresh failed."
+  run_logged "${PKG_INSTALL[@]}" "${MISSING[@]}" || die "Bootstrap install failed."
 fi
 log "==> Checking HTTPS access"
-curl -fsSL --connect-timeout 10 --max-time 30 -o /dev/null https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh \
+run_logged curl -fsSL --connect-timeout 10 --max-time 30 -o /dev/null https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh \
   || die "Cannot reach GitHub over HTTPS; check DNS, proxy, and network access."
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf -- "$TEMP_DIR"' EXIT
@@ -107,9 +125,9 @@ fi
 log "==> Checking Oh My Zsh"
 if [ ! -d "$HOME/.oh-my-zsh" ]; then
   log "    Installing Oh My Zsh"
-  curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o "$TEMP_DIR/ohmyzsh.sh" \
+  run_logged curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh -o "$TEMP_DIR/ohmyzsh.sh" \
     || die "Oh My Zsh download failed."
-  RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh "$TEMP_DIR/ohmyzsh.sh" >> "$LOGFILE" 2>&1 \
+  run_logged env RUNZSH=no CHSH=no KEEP_ZSHRC=yes sh "$TEMP_DIR/ohmyzsh.sh" \
     || die "Oh My Zsh install failed."
 else
   skip
@@ -118,9 +136,9 @@ fi
 # --- pixi ---
 log "==> Checking pixi"
 if ! command -v pixi &>/dev/null; then
-  log "    Installing pixi"
-  curl -fsSL https://pixi.sh/install.sh -o "$TEMP_DIR/pixi.sh" || die "Pixi download failed."
-  PIXI_NO_PATH_UPDATE=1 bash "$TEMP_DIR/pixi.sh" >> "$LOGFILE" 2>&1 || die "Pixi install failed."
+  log "    Installing Pixi (download and extraction may take a few minutes)"
+  run_logged curl -fsSL https://pixi.sh/install.sh -o "$TEMP_DIR/pixi.sh" || die "Pixi download failed."
+  run_logged env PIXI_NO_PATH_UPDATE=1 bash "$TEMP_DIR/pixi.sh" || die "Pixi install failed."
 else
   skip
 fi
@@ -169,7 +187,7 @@ for tool in "${PIXI_TOOLS[@]}"; do
     log "    $tool already available, skipping"
   else
     log "    Installing $tool"
-    pixi global install --channel conda-forge "$tool" >> "$LOGFILE" 2>&1 \
+    run_logged pixi global install --channel conda-forge "$tool" \
       || warn "$tool failed: run pixi global install --channel conda-forge $tool"
   fi
 done
@@ -178,9 +196,9 @@ for tool in zsh nvim yazi; do
 done
 
 # Keep the editor's Python provider in its own environment, with a unique shim.
-if ! command -v nvim-python >/dev/null 2>&1 || ! nvim-python -c 'import pynvim' >> "$LOGFILE" 2>&1; then
-  pixi global install --channel conda-forge --environment dotfiles-nvim-python \
-    --expose nvim-python=python python pynvim >> "$LOGFILE" 2>&1 \
+if ! command -v nvim-python >/dev/null 2>&1 || ! run_logged nvim-python -c 'import pynvim'; then
+  run_logged pixi global install --channel conda-forge --environment dotfiles-nvim-python \
+    --expose nvim-python=python python pynvim \
     || warn "Neovim Python provider failed to install; snippets may not work."
 fi
 if [[ "$(uname)" == Linux ]]; then
@@ -192,7 +210,7 @@ fi
 # Neofetch is a Bash script; install a tagged upstream release into user space.
 if ! command -v neofetch >/dev/null 2>&1; then
   log "==> Installing Neofetch 7.1.0"
-  if curl -fsSL --connect-timeout 10 --max-time 60 \
+  if run_logged curl -fsSL --connect-timeout 10 --max-time 60 \
     https://raw.githubusercontent.com/dylanaraps/neofetch/7.1.0/neofetch -o "$TEMP_DIR/neofetch"; then
     mkdir -p "$HOME/.local/bin"
     install -m 755 "$TEMP_DIR/neofetch" "$HOME/.local/bin/neofetch" \
@@ -243,7 +261,7 @@ else
     FONT_PATH="$FONT_DIR/$FONT_NAME"
     
     if [ ! -f "$FONT_PATH" ]; then
-      if curl -fL --connect-timeout 10 --max-time 60 -o "$TEMP_DIR/font.ttf" "$FONT_BASE_URL/$font" >> "$LOGFILE" 2>&1; then
+      if run_logged curl -fL --connect-timeout 10 --max-time 60 -o "$TEMP_DIR/font.ttf" "$FONT_BASE_URL/$font"; then
         mv "$TEMP_DIR/font.ttf" "$FONT_PATH"
         log "      ✓ $FONT_NAME"
       else
@@ -254,7 +272,7 @@ else
   
   # Refresh font cache
   if [[ "$(uname)" != "Darwin" ]]; then
-    fc-cache -fv >> "$LOGFILE" 2>&1 && log "    Font cache updated" || warn "fc-cache failed — run 'fc-cache -fv' manually"
+    run_logged fc-cache -fv && log "    Font cache updated" || warn "fc-cache failed — run 'fc-cache -fv' manually"
   else
     log "    Fonts installed to ~/Library/Fonts (restart terminal to use)"
   fi
@@ -315,7 +333,7 @@ if diff -q "$SCRIPT_DIR/init.vim" "$NVIM_CONFIG" >/dev/null 2>&1; then
   NVIM_BIN="${PIXI_HOME:-$HOME/.pixi}/bin/nvim"
   NVIM=$(command -v "$NVIM_BIN" 2>/dev/null || command -v nvim 2>/dev/null || true)
   if [ -n "$NVIM" ]; then
-    "$NVIM" --headless "+PlugInstall --sync" +qall >> "$LOGFILE" 2>&1 \
+    run_logged "$NVIM" --headless "+PlugInstall --sync" +qall \
       && log "    Plugins installed" \
       || warn "Headless plugin install failed. Run ':PlugInstall' manually inside nvim."
   else
@@ -342,3 +360,4 @@ if [ "${#WARNINGS[@]}" -gt 0 ]; then
   exit 1
 fi
 log "Don't forget to set MesloLGS NF as your terminal font."
+
