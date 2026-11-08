@@ -43,8 +43,9 @@ Add a body when needed to explain the reason or a material side effect.
 ## Installer and configuration
 
 - Run installation as a regular user; elevate privileges only where needed.
-- Reuse available tools, preserve unique backups, and keep default-shell changes
-  optional. Preserve machine-local customization files.
+- Reuse available tools and preserve unique backups. Use Zsh as the default
+  login shell unless `--keep-shell` is set; never change another user's shell.
+  Preserve machine-local customization files.
 - Keep Unix line endings and compatibility with the existing package managers.
   Check package names separately from executable names.
 - Report partial failures clearly. Never silently discard existing configuration.
@@ -61,3 +62,4 @@ mocked checks as a successful fresh-machine installation.
 For documentation-only changes, compare commands, paths, flags, and shortcuts
 with the current source. Check relative links and confirm that repackaging
 preserves all original executable and configuration files unchanged.
+

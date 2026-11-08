@@ -30,7 +30,7 @@ bash install.sh --verbose
 ```
 
 `-v` is the short form. Combine it with other options, for example
-`bash install.sh --verbose --change-shell`. With no verbose flag, output stays
+`bash install.sh --verbose --keep-shell`. With no verbose flag, output stays
 concise. To watch an installation already running, open another terminal and run:
 
 ```bash
@@ -43,19 +43,26 @@ If you extracted the archive, skip the `git clone` line and enter the extracted
 folder. Review the prompts before replacing existing configuration. Then run
 `zsh` to try the new shell.
 
-To make Zsh your default login shell, run this instead:
+**The installer uses Zsh as your default shell for future logins.** It may ask
+for your password to update your account. On Linux it uses sudo when available,
+so you do not need to run a separate `chsh` command.
+
+To keep your current default shell instead:
 
 ```bash
-bash install.sh --change-shell
+bash install.sh --keep-shell
 ```
 
+`--use-zsh` explicitly selects the default behavior. The older `--change-shell`
+option remains an alias. If both shell options are supplied, the last one wins.
+The installer does not replace the shell running in your current terminal;
+run `exec zsh` to start using Zsh immediately.
 Log out and back in afterward. Select **MesloLGS NF** in your terminal's font
 settings for prompt symbols. The installer downloads the font; for SSH, select
 it in the terminal on your own computer.
 
 Use `bash install.sh -y` to accept configuration replacements automatically.
-Passwords may still be required. Changing the default shell always requires
-`--change-shell`.
+Passwords may still be required, including for the default-shell change.
 
 ## What you get
 
@@ -97,8 +104,8 @@ plugins inside `~/.config/nvim` (or `$XDG_CONFIG_HOME/nvim` if set).
 
 The script writes `~/.zshrc` and Neovim's `init.vim`. Before replacing a different
 existing file, it asks and saves a unique `.bak.*` copy beside it. It also installs
-tools, plugins, and fonts. With `--change-shell`, it changes your login shell
-and may add Zsh to `/etc/shells`.
+tools, plugins, and fonts. Unless you use `--keep-shell`, it sets Zsh as your
+default login shell and may add it to `/etc/shells`.
 
 Rerun `bash install.sh` to apply configuration updates or retry missing tools.
 Identical configuration is skipped. Existing tools are not automatically
@@ -120,6 +127,9 @@ from the conda-forge `nvim` package (the `neovim` package is a Python client).
 
 - **Existing Neovim `init.lua`:** installation stops at Neovim configuration.
   Reconcile it with this setup before rerunning.
+- **Default shell did not change:** read the reported authentication error.
+  On Linux, retry with `sudo chsh -s /path/to/zsh your-username`, using the path
+  and username printed by the installer. Then log out and reconnect.
 - **Missing editor plugins:** run `:PlugInstall` inside Neovim.
 - **Missing Yazi previews:** run `yazi --debug` and check the relevant helper.
   Reused tools may need upgrading for compatibility.
@@ -128,4 +138,5 @@ from the conda-forge `nvim` package (the `neovim` package is a Python client).
 
 See Yazi's [quick start](https://yazi-rs.github.io/docs/quick-start/) for more.
 Contributor guidance lives in [AGENTS.md](AGENTS.md).
+
 
