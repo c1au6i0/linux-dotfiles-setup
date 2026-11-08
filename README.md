@@ -122,6 +122,18 @@ See the official [Kitty SSH guide](https://sw.kovidgoyal.net/kitty/kittens/ssh/)
 and [Ghostty terminfo guide](https://ghostty.org/docs/help/terminfo).
 This compatibility setup does not diagnose intermittent SSH or input lag.
 
+## Local Linux console
+
+When you log in directly on the server's text console (`TERM=linux`), Zsh uses
+a simple prompt with your username, hostname, and current directory. It avoids
+the decorative symbols that console fonts may not display. You still use Zsh,
+zoxide, and the other shell features.
+
+Kitty and Ghostty sessions keep the agnoster prompt; select MesloLGS NF in your
+local terminal for its symbols. Detection happens each time Zsh starts, so you
+can use the same configuration locally and over SSH. Personal prompt settings
+in `~/.zshrc.local` can override either default.
+
 ## Everyday use
 
 ```bash
