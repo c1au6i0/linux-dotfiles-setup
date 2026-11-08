@@ -6,16 +6,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Check for non-interactive mode
 INTERACTIVE=true
-CHANGE_SHELL=false
+USE_ZSH=true
 VERBOSE=false
 for arg in "$@"; do
   case "$arg" in
     -y|--non-interactive) INTERACTIVE=false ;;
-    --change-shell) CHANGE_SHELL=true ;;
+    --use-zsh|--change-shell) USE_ZSH=true ;;
+    --keep-shell) USE_ZSH=false ;;
     -v|--verbose) VERBOSE=true ;;
     -h|--help)
-      echo "Usage: bash install.sh [-y|--non-interactive] [--change-shell] [-v|--verbose]"
-      echo "-y accepts config replacement; --change-shell makes zsh the login shell."
+      echo "Usage: bash install.sh [-y|--non-interactive] [--use-zsh|--keep-shell] [-v|--verbose]"
+      echo "Uses Zsh as your default shell for future logins unless --keep-shell is set."
+      echo "--use-zsh explicitly selects Zsh; --change-shell is a compatibility alias."
+      echo "-y accepts config replacement; sudo/chsh may still ask for your password."
       echo "-v streams installation output to the terminal and the log."
       exit 0 ;;
     *) echo "Unknown option: $arg" >&2; exit 2 ;;
@@ -113,7 +116,7 @@ trap 'rm -rf -- "$TEMP_DIR"' EXIT
 
 # --- Ensure zsh is in /etc/shells (required for chsh) ---
 ZSH_PATH="$(command -v zsh)"
-if [ "$CHANGE_SHELL" = true ] && ! grep -qxF "$ZSH_PATH" /etc/shells; then
+if [ "$USE_ZSH" = true ] && ! grep -qxF "$ZSH_PATH" /etc/shells; then
   log "==> Adding $ZSH_PATH to /etc/shells"
   echo "$ZSH_PATH" | sudo tee -a /etc/shells >> "$LOGFILE" \
     || warn "Could not add zsh to /etc/shells. Run: echo '$ZSH_PATH' | sudo tee -a /etc/shells"
@@ -346,23 +349,57 @@ if diff -q "$SCRIPT_DIR/init.vim" "$NVIM_CONFIG" >/dev/null 2>&1; then
   fi
 fi
 
-# --- Default shell ---
-log "==> Checking default shell"
-if [ "$CHANGE_SHELL" != true ]; then
-  log "    Unchanged. Use --change-shell to make zsh your login shell."
-elif [ "${SHELL:-}" = "$ZSH_PATH" ]; then
-  log "    Already set to zsh, skipping"
+# Read the account setting: $SHELL can still describe an older login session.
+login_shell() {
+  if command -v getent >/dev/null 2>&1; then
+    getent passwd "$CURRENT_USER" | cut -d: -f7
+  elif [[ "$(uname)" == Darwin ]] && command -v dscl >/dev/null 2>&1; then
+    dscl . -read "/Users/$CURRENT_USER" UserShell | awk '/UserShell:/ {print $2}'
+  else
+    # No account lookup available; do not use a possibly stale $SHELL to skip.
+    printf '\n'
+  fi
+}
+
+# --- Use Zsh for future logins ---
+log "==> Checking whether Zsh is your default shell"
+if [ "$USE_ZSH" != true ]; then
+  log "    Keeping your current default shell (--keep-shell)."
 else
-  chsh -s "$ZSH_PATH" \
-    || warn "chsh failed. Run 'chsh -s $ZSH_PATH' manually, or ask your sysadmin."
+  CURRENT_USER="$(id -un)"
+  CURRENT_LOGIN_SHELL="$(login_shell)" || CURRENT_LOGIN_SHELL=""
+  if [ "$CURRENT_LOGIN_SHELL" = "$ZSH_PATH" ]; then
+    log "    Already using Zsh by default, skipping."
+  else
+    SHELL_COMMAND=(chsh -s "$ZSH_PATH" "$CURRENT_USER")
+    if [[ "$(uname)" == Linux ]] && command -v sudo >/dev/null 2>&1; then
+      # Target the invoking user explicitly, never root's account.
+      SHELL_COMMAND=(sudo chsh -s "$ZSH_PATH" "$CURRENT_USER")
+      log "    Setting Zsh as your default with sudo; your password may be requested."
+    else
+      log "    Setting Zsh as your default; your password may be requested."
+    fi
+    # Keep authentication prompts attached to the terminal, including quiet mode.
+    if "${SHELL_COMMAND[@]}"; then
+      CURRENT_LOGIN_SHELL="$(login_shell)" || CURRENT_LOGIN_SHELL=""
+      if [ -n "$CURRENT_LOGIN_SHELL" ] && [ "$CURRENT_LOGIN_SHELL" != "$ZSH_PATH" ]; then
+        warn "The account still reports $CURRENT_LOGIN_SHELL. Ask your sysadmin to set $ZSH_PATH for $CURRENT_USER."
+      else
+        log "    Zsh selected for future logins. Log out and reconnect to use it."
+      fi
+    else
+      warn "Could not set Zsh as your default. On Linux, try: sudo chsh -s '$ZSH_PATH' '$CURRENT_USER'"
+    fi
+  fi
 fi
 
 log ""
-log "Setup finished. Start zsh with: zsh"
+log "Setup finished. To use Zsh in this terminal now, run: exec zsh"
 if [ "${#WARNINGS[@]}" -gt 0 ]; then
   log "Completed with ${#WARNINGS[@]} warning(s):"
   for message in "${WARNINGS[@]}"; do log "  - $message"; done
   exit 1
 fi
 log "Don't forget to set MesloLGS NF as your terminal font."
+
 
