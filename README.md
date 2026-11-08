@@ -79,6 +79,49 @@ package manager. Neovim's Python support uses a separate environment, leaving
 system Python alone. Missing Neofetch is downloaded as version 7.1.0.
 You do not need a separate apt command for Yazi's whole dependency list.
 
+## Kitty and Ghostty over SSH
+
+The server needs a terminal definition, called **terminfo**, to interpret cursor
+movement, editing keys, and screen updates. Missing definitions can make text
+appear duplicated or editing behave incorrectly.
+
+The installer detects Kitty (`xterm-kitty`) or Ghostty (`xterm-ghostty`) from
+`$TERM`, reuses an existing definition, or tries your system's terminfo packages.
+It installs terminal definitions, not the Kitty or Ghostty graphical application.
+Use an explicit choice if detection is hidden by tmux or another terminal:
+
+```bash
+bash install.sh --terminal kitty
+bash install.sh --terminal ghostty
+```
+
+`--terminal auto` is the default; `--terminal none` skips this step. These options
+do not change `$TERM` or your terminal settings. On older systems the packages
+may still lack the required definition; the installer checks and warns afterward.
+
+Alternatively, Kitty's SSH helper transfers its definition automatically. Run
+this **on your local computer inside Kitty**, using your own SSH host name:
+
+```bash
+kitten ssh epsi-jon
+```
+
+For Ghostty, copy the definition **from your local computer** to the server:
+
+```bash
+infocmp -x xterm-ghostty | ssh epsi-jon 'tic -x -o ~/.terminfo -'
+```
+
+The server needs `tic` (`ncurses-bin` on Debian/Ubuntu). If your Mac's bundled
+`infocmp` is too old, use the version from Homebrew's ncurses package instead.
+Verify **on the server** with `infocmp "$TERM" >/dev/null`; no error means the
+current terminal is recognized. Definitions stored in `~/.terminfo` can be
+removed individually to undo a manual copy.
+
+See the official [Kitty SSH guide](https://sw.kovidgoyal.net/kitty/kittens/ssh/)
+and [Ghostty terminfo guide](https://ghostty.org/docs/help/terminfo).
+This compatibility setup does not diagnose intermittent SSH or input lag.
+
 ## Everyday use
 
 ```bash
@@ -138,5 +181,6 @@ from the conda-forge `nvim` package (the `neovim` package is a Python client).
 
 See Yazi's [quick start](https://yazi-rs.github.io/docs/quick-start/) for more.
 Contributor guidance lives in [AGENTS.md](AGENTS.md).
+
 
 
