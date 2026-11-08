@@ -149,7 +149,11 @@ set ruler
 set number
 
 let no_buffers_menu=1
-colorscheme gruvbox
+" During first setup the theme is downloaded after this config is read.
+" Keep the default theme until gruvbox is available on the next startup.
+if !empty(globpath(&runtimepath, 'colors/gruvbox.vim'))
+  colorscheme gruvbox
+endif
 
 " Better command line completion 
 set wildmenu

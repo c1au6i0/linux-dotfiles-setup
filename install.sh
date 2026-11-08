@@ -272,7 +272,12 @@ else
   
   # Refresh font cache
   if [[ "$(uname)" != "Darwin" ]]; then
-    run_logged fc-cache -fv && log "    Font cache updated" || warn "fc-cache failed — run 'fc-cache -fv' manually"
+    if command -v fc-cache >/dev/null 2>&1; then
+      run_logged fc-cache -fv && log "    Font cache updated" || warn "fc-cache failed — run 'fc-cache -fv' manually"
+    else
+      log "    Fonts saved; cache refresh skipped (optional fontconfig is not installed)."
+      log "    For SSH, select MesloLGS NF in the terminal on your own computer."
+    fi
   else
     log "    Fonts installed to ~/Library/Fonts (restart terminal to use)"
   fi
