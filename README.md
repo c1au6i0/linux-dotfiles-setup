@@ -18,6 +18,27 @@ cd linux-dotfiles-setup
 bash install.sh
 ```
 
+**Allow several minutes for the first installation.** Downloading Pixi, installing
+packages, and fetching editor plugins can take longer on a slow connection.
+Some steps may be quiet while they work.
+
+Progress messages appear in the terminal; full installation output is appended
+to `~/dotfiles-install.log`. To see that output in the terminal too, use:
+
+```bash
+bash install.sh --verbose
+```
+
+`-v` is the short form. Combine it with other options, for example
+`bash install.sh --verbose --change-shell`. With no verbose flag, output stays
+concise. To watch an installation already running, open another terminal and run:
+
+```bash
+tail -f ~/dotfiles-install.log
+```
+
+Press Ctrl-C in that second terminal to stop watching; installation continues.
+
 If you extracted the archive, skip the `git clone` line and enter the extracted
 folder. Review the prompts before replacing existing configuration. Then run
 `zsh` to try the new shell.
@@ -92,7 +113,10 @@ separately; there is no complete uninstall command.
 
 Check `~/dotfiles-install.log`. Missing required tools stop installation.
 Optional failures are summarized with exit status 1; earlier steps may already
-have completed.
+have completed. Fix the reported issue and rerun the installer; completed tools
+are reused. If an older installer stopped with "Required tool nvim is missing,"
+update this repository and rerun: the corrected installer installs the editor
+from the conda-forge `nvim` package (the `neovim` package is a Python client).
 
 - **Existing Neovim `init.lua`:** installation stops at Neovim configuration.
   Reconcile it with this setup before rerunning.
@@ -104,3 +128,4 @@ have completed.
 
 See Yazi's [quick start](https://yazi-rs.github.io/docs/quick-start/) for more.
 Contributor guidance lives in [AGENTS.md](AGENTS.md).
+
