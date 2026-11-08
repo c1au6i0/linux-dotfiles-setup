@@ -8,22 +8,33 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INTERACTIVE=true
 USE_ZSH=true
 VERBOSE=false
-for arg in "$@"; do
-  case "$arg" in
+TERMINAL_SUPPORT=auto
+while [ "$#" -gt 0 ]; do
+  case "$1" in
     -y|--non-interactive) INTERACTIVE=false ;;
     --use-zsh|--change-shell) USE_ZSH=true ;;
     --keep-shell) USE_ZSH=false ;;
     -v|--verbose) VERBOSE=true ;;
+    --terminal)
+      [ "$#" -ge 2 ] || { echo "--terminal requires auto, kitty, ghostty, or none." >&2; exit 2; }
+      TERMINAL_SUPPORT="$2"; shift ;;
+    --terminal=*) TERMINAL_SUPPORT="${1#*=}" ;;
     -h|--help)
-      echo "Usage: bash install.sh [-y|--non-interactive] [--use-zsh|--keep-shell] [-v|--verbose]"
+      echo "Usage: bash install.sh [-y|--non-interactive] [--use-zsh|--keep-shell] [-v|--verbose] [--terminal auto|kitty|ghostty|none]"
       echo "Uses Zsh as your default shell for future logins unless --keep-shell is set."
       echo "--use-zsh explicitly selects Zsh; --change-shell is a compatibility alias."
       echo "-y accepts config replacement; sudo/chsh may still ask for your password."
       echo "-v streams installation output to the terminal and the log."
+      echo "--terminal checks terminal definitions; default: auto-detect from TERM."
       exit 0 ;;
-    *) echo "Unknown option: $arg" >&2; exit 2 ;;
+    *) echo "Unknown option: $1" >&2; exit 2 ;;
   esac
+  shift
 done
+case "$TERMINAL_SUPPORT" in
+  auto|kitty|ghostty|none) ;;
+  *) echo "Invalid terminal: $TERMINAL_SUPPORT (choose auto, kitty, ghostty, or none)." >&2; exit 2 ;;
+esac
 WARNINGS=()
 export PATH="${PIXI_HOME:-$HOME/.pixi}/bin:$HOME/.local/bin:$PATH"
 trap 'printf "ERROR at line %s. See %s\n" "$LINENO" "$LOGFILE" >&2' ERR
@@ -40,6 +51,61 @@ run_logged() {
     "$@" 2>&1 | tee -a "$LOGFILE"
   else
     "$@" >> "$LOGFILE" 2>&1
+  fi
+}
+
+# Terminal definitions describe cursor, editing, and display capabilities.
+# Install definitions on this host, never a graphical terminal application.
+configure_terminal() {
+  local selected="$TERMINAL_SUPPORT" entry package
+  if [ "$selected" = auto ]; then
+    case "${TERM:-}" in
+      xterm-kitty) selected=kitty ;;
+      xterm-ghostty) selected=ghostty ;;
+      *) log "    No Kitty/Ghostty terminal detected (TERM=${TERM:-unset}); skipping."; return 0 ;;
+    esac
+  fi
+  if [ "$selected" = none ]; then
+    log "    Terminal support skipped (--terminal none)."
+    return 0
+  fi
+  entry="xterm-$selected"
+  if command -v infocmp >/dev/null 2>&1 && infocmp -x "$entry" >/dev/null 2>&1; then
+    log "    $entry is already available, skipping."
+    return 0
+  fi
+
+  # Package layouts differ. Verify the requested entry after installation;
+  # older ncurses versions may still lack Ghostty's definition.
+  case "$PKG_MANAGER" in
+    apt)
+      package=ncurses-term
+      [ "$selected" != kitty ] || package=kitty-terminfo
+      if ! run_logged "${PKG_UPDATE[@]}" || ! run_logged "${PKG_INSTALL[@]}" ncurses-bin "$package"; then
+        log "    Terminal package install failed; checking existing definitions."
+      fi ;;
+    dnf|yum)
+      if ! run_logged "${PKG_INSTALL[@]}" ncurses ncurses-term; then
+        log "    Terminal package install failed; checking existing definitions."
+      fi ;;
+    brew)
+      if run_logged "${PKG_INSTALL[@]}" ncurses; then
+        # Homebrew ncurses may be keg-only. Copy only the selected entry into
+        # the user's database, where system tools can find it too.
+        local ncurses_prefix
+        ncurses_prefix="$(brew --prefix ncurses)" || ncurses_prefix=""
+        if [ -n "$ncurses_prefix" ] && [ -x "$ncurses_prefix/bin/infocmp" ] && [ -x "$ncurses_prefix/bin/tic" ]; then
+          if "$ncurses_prefix/bin/infocmp" -x "$entry" > "$TEMP_DIR/terminal.terminfo" 2>> "$LOGFILE"; then
+            run_logged "$ncurses_prefix/bin/tic" -x -o "$HOME/.terminfo" "$TEMP_DIR/terminal.terminfo" \
+              || log "    Could not compile $entry into ~/.terminfo."
+          fi
+        fi
+      fi ;;
+  esac
+  if command -v infocmp >/dev/null 2>&1 && infocmp -x "$entry" >/dev/null 2>&1; then
+    log "    $entry terminal support is ready."
+  else
+    warn "$entry is still unavailable. See the README's Kitty and Ghostty section for copying it from your local computer."
   fi
 }
 
@@ -113,6 +179,9 @@ run_logged curl -fsSL --connect-timeout 10 --max-time 30 -o /dev/null https://ra
   || die "Cannot reach GitHub over HTTPS; check DNS, proxy, and network access."
 TEMP_DIR=$(mktemp -d)
 trap 'rm -rf -- "$TEMP_DIR"' EXIT
+
+log "==> Checking terminal support"
+configure_terminal
 
 # --- Ensure zsh is in /etc/shells (required for chsh) ---
 ZSH_PATH="$(command -v zsh)"
@@ -401,5 +470,6 @@ if [ "${#WARNINGS[@]}" -gt 0 ]; then
   exit 1
 fi
 log "Don't forget to set MesloLGS NF as your terminal font."
+
 
 
