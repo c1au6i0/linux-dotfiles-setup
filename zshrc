@@ -1,10 +1,19 @@
 # Tools installed by Pixi, plus user scripts.
 export PATH="${PIXI_HOME:-$HOME/.pixi}/bin:$HOME/.local/bin:$PATH"
 export ZSH="$HOME/.oh-my-zsh"
-ZSH_THEME="agnoster"
+# Linux virtual consoles use console fonts, without Nerd Font symbols.
+if [[ "${TERM:-}" == linux ]]; then
+  ZSH_THEME=""
+else
+  ZSH_THEME="agnoster"
+fi
 setopt HIST_IGNORE_SPACE
 plugins=(git)
 [[ ! -r "$ZSH/oh-my-zsh.sh" ]] || source "$ZSH/oh-my-zsh.sh"
+if [[ "${TERM:-}" == linux ]]; then
+  PROMPT='%n@%m:%~%# '
+  RPROMPT=''
+fi
 if command -v nvim >/dev/null 2>&1; then
   export EDITOR=nvim
   export SYSTEMD_EDITOR=nvim
