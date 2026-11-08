@@ -1,28 +1,33 @@
-# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
-if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
-  source "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh"
+# Tools installed by Pixi, plus user scripts.
+export PATH="${PIXI_HOME:-$HOME/.pixi}/bin:$HOME/.local/bin:$PATH"
+export ZSH="$HOME/.oh-my-zsh"
+ZSH_THEME="agnoster"
+setopt HIST_IGNORE_SPACE
+plugins=(git)
+[[ ! -r "$ZSH/oh-my-zsh.sh" ]] || source "$ZSH/oh-my-zsh.sh"
+if command -v nvim >/dev/null 2>&1; then
+  export EDITOR=nvim
+  export SYSTEMD_EDITOR=nvim
+fi
+if command -v zoxide >/dev/null 2>&1; then
+  eval "$(zoxide init zsh)"
 fi
 
-# Path to your Oh My Zsh installation.
-export ZSH="$HOME/.oh-my-zsh"
+# Launch Yazi and return to the directory selected when quitting with q.
+function y() {
+  local tmp cwd result=0
+  tmp=$(mktemp -t yazi-cwd.XXXXXX) || return 1
+  command yazi "$@" --cwd-file="$tmp" || result=$?
+  IFS= read -r -d '' cwd < "$tmp" || true
+  [[ -z "$cwd" || "$cwd" == "$PWD" || ! -d "$cwd" ]] || builtin cd -- "$cwd"
+  command rm -f -- "$tmp"
+  return "$result"
+}
 
-ZSH_THEME="agnoster"
+# Machine-specific additions survive installer updates.
+[[ ! -r "$HOME/.zshrc.local" ]] || source "$HOME/.zshrc.local"
 
-setopt HIST_IGNORE_SPACE
-
-plugins=(git)
-
-source $ZSH/oh-my-zsh.sh
-
-# PATH
-export PATH="$HOME/.pixi/bin:$HOME/.local/bin:$PATH"
-
-# Editor
-export EDITOR="nvim"
-export SYSTEMD_EDITOR=nvim
-
-# zoxide (smart cd)
-eval "$(zoxide init zsh)"
-
-# To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
-# [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
+# Show system details only in an interactive terminal. Set to 1 locally to disable.
+if [[ -o interactive && -t 1 && "${DOTFILES_NO_NEOFETCH:-0}" != 1 ]] && command -v neofetch >/dev/null 2>&1; then
+  neofetch
+fi
