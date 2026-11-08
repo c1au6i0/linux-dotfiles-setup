@@ -131,7 +131,7 @@ command -v pixi &>/dev/null || die "pixi not found on PATH. Open a new terminal 
 # --- Tools via pixi ---
 log "==> Checking tools via pixi"
 PIXI_TOOLS=(
-  neovim
+  nvim
   yazi
   fd-find
   zoxide
@@ -158,7 +158,6 @@ PIXI_TOOLS=(
 for tool in "${PIXI_TOOLS[@]}"; do
   executable="$tool"
   case "$tool" in
-    neovim) executable=nvim ;;
     fd-find) executable=fd ;;
     ripgrep) executable=rg ;;
     poppler) executable=pdftoppm ;;
