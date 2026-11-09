@@ -73,11 +73,38 @@ Passwords may still be required, including for the default-shell change.
 | File manager | Yazi, plus ffmpeg, 7zip, jq, poppler, fd, ripgrep, fzf, resvg, and ImageMagick for previews, archives, and search. |
 | Utilities | rsync, rclone, universal-ctags, tmux, wget, unzip, curl, and Python. |
 
-Existing commands are reused. Missing user tools use **Pixi**, a package manager
-the script installs automatically. Zsh, curl, Git, and `file` use your system
-package manager. Neovim's Python support uses a separate environment, leaving
-system Python alone. Missing Neofetch is downloaded as version 7.1.0.
-You do not need a separate apt command for Yazi's whole dependency list.
+Administrative tools use the native package manager: **Neovim, rsync, rclone,
+curl, wget, and Git**. On Linux this is apt, dnf, or yum; on macOS it is Homebrew.
+Zsh and `file` also use the native package manager when missing.
+
+Yazi and its preview/search helpers, plus tmux, universal-ctags, unzip, and
+personal Python tools, use **Pixi** when their commands are missing. The script
+installs Pixi automatically. Neovim's Python provider stays in a separate Pixi
+environment, leaving system Python alone. Neofetch is downloaded as version 7.1.0.
+
+### Updating an earlier Pixi-based setup
+
+The installer adds missing native packages even if a Pixi copy exists. It uses
+the native Neovim for plugin installation and warns if your normal shell still
+selects a user-installed administrative tool. It keeps existing Pixi environments,
+scripts, configuration, and sudo settings; it does not remove old command links.
+
+Before removing an old copy, compare paths with `type -a nvim rsync rclone curl
+wget git` and review `pixi global list`. Check scripts for explicit Pixi paths
+and compare versions: native repositories may provide older releases. Remove an
+individual Pixi environment only after its native replacement meets your needs;
+for example, `pixi global uninstall nvim` removes a standalone environment named
+`nvim`, not your `~/.config/nvim` configuration. Confirm the environment name first.
+Restart your shell afterward and check command paths again. A previous symlink
+in `/usr/local/bin` may still point to Pixi; inspect and remove only that specific
+link if you created it for this migration.
+
+On Linux, native executables normally live in `/usr/bin`, which sudo searches.
+You do not need to add your Pixi directory to sudo's PATH. On macOS, Homebrew's
+prefix and sudo's PATH can differ; package installation alone does not configure
+sudo lookup. For system-file editing with your own Neovim configuration, use
+`sudoedit` with `SUDO_EDITOR` set to your editor's full path. Running Neovim as
+root still uses root's editor settings by default.
 
 ## Kitty and Ghostty over SSH
 
@@ -109,7 +136,7 @@ kitten ssh your-host
 For Ghostty, copy the definition **from your local computer** to the server:
 
 ```bash
-infocmp -x xterm-ghostty | ssh epsi-jon 'tic -x -o ~/.terminfo -'
+infocmp -x xterm-ghostty | ssh your-host 'tic -x -o ~/.terminfo -'
 ```
 
 The server needs `tic` (`ncurses-bin` on Debian/Ubuntu). If your Mac's bundled
@@ -126,7 +153,7 @@ This compatibility setup does not diagnose intermittent SSH or input lag.
 
 When you log in directly on the server's text console (`TERM=linux`), Zsh uses
 a simple prompt with the machine name and current folder, such as
-`epsi-jon [linux-dotfiles-setup] >`. At home it shows `epsi-jon [heverz] >`,
+`your-host [linux-dotfiles-setup] >`. At home it shows `your-host [your-user] >`,
 without a tilde. It avoids decorative symbols that console fonts may not display.
 You still use Zsh, zoxide, and the other shell features.
 
@@ -178,8 +205,8 @@ Check `~/dotfiles-install.log`. Missing required tools stop installation.
 Optional failures are summarized with exit status 1; earlier steps may already
 have completed. Fix the reported issue and rerun the installer; completed tools
 are reused. If an older installer stopped with "Required tool nvim is missing,"
-update this repository and rerun: the corrected installer installs the editor
-from the conda-forge `nvim` package (the `neovim` package is a Python client).
+update this repository and rerun: the installer now installs the editor through
+the native package manager, independently of any old Pixi Python-client package.
 
 - **Existing Neovim `init.lua`:** installation stops at Neovim configuration.
   Reconcile it with this setup before rerunning.
@@ -194,6 +221,7 @@ from the conda-forge `nvim` package (the `neovim` package is a Python client).
 
 See Yazi's [quick start](https://yazi-rs.github.io/docs/quick-start/) for more.
 Contributor guidance lives in [AGENTS.md](AGENTS.md).
+
 
 
 

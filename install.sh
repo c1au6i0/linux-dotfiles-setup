@@ -143,7 +143,7 @@ if [ "$EUID" -eq 0 ]; then
 fi
 
 # --- Detect package manager ---
-if command -v brew &>/dev/null; then
+if [[ "$(uname)" == Darwin ]] && command -v brew &>/dev/null; then
   PKG_MANAGER="brew"
   PKG_INSTALL=(brew install)
   PKG_UPDATE=(brew update)
@@ -174,6 +174,55 @@ if [ "${#MISSING[@]}" -gt 0 ]; then
   run_logged "${PKG_UPDATE[@]}" || die "Package metadata refresh failed."
   run_logged "${PKG_INSTALL[@]}" "${MISSING[@]}" || die "Bootstrap install failed."
 fi
+# Administrative tools belong to the OS package manager so sudo can find
+# the Linux executables without trusting the user's Pixi directory.
+native_package_installed() {
+  case "$PKG_MANAGER" in
+    apt) [ "$(dpkg-query -W -f='${Status}' "$1" 2>/dev/null)" = "install ok installed" ] ;;
+    dnf|yum) rpm -q "$1" >/dev/null 2>&1 ;;
+    brew) brew list --formula --versions "$1" >/dev/null 2>&1 ;;
+  esac
+}
+
+native_tool_path() {
+  local tool="$1" package="$1" prefix
+  [ "$tool" != nvim ] || package=neovim
+  if [ "$PKG_MANAGER" = brew ]; then
+    prefix="$(brew --prefix "$package")" || return 1
+    printf '%s/bin/%s\n' "$prefix" "$tool"
+  elif [ -x "/usr/bin/$tool" ]; then
+    printf '/usr/bin/%s\n' "$tool"
+  elif [ -x "/bin/$tool" ]; then
+    printf '/bin/%s\n' "$tool"
+  else
+    return 1
+  fi
+}
+
+log "==> Checking administrative tools via $PKG_MANAGER"
+NATIVE_PACKAGES=(neovim rsync rclone curl wget git)
+NATIVE_MISSING=()
+NATIVE_MISSING_COUNT=0
+for package in "${NATIVE_PACKAGES[@]}"; do
+  if ! native_package_installed "$package"; then
+    NATIVE_MISSING+=("$package")
+    NATIVE_MISSING_COUNT=$((NATIVE_MISSING_COUNT + 1))
+  fi
+done
+if [ "$NATIVE_MISSING_COUNT" -gt 0 ]; then
+  log "    Installing native packages: ${NATIVE_MISSING[*]}"
+  run_logged "${PKG_UPDATE[@]}" || die "Package metadata refresh failed."
+  run_logged "${PKG_INSTALL[@]}" "${NATIVE_MISSING[@]}" \
+    || die "Administrative tool installation failed. Check the log and enabled repositories. Existing Pixi copies were kept."
+fi
+NATIVE_NVIM=""
+for tool in nvim rsync rclone curl wget git; do
+  native_path="$(native_tool_path "$tool")" || die "Native $tool executable was not found after package installation."
+  [ -x "$native_path" ] || die "Native executable is missing: $native_path"
+  log "    $tool: $native_path"
+  [ "$tool" != nvim ] || NATIVE_NVIM="$native_path"
+done
+
 log "==> Checking HTTPS access"
 run_logged curl -fsSL --connect-timeout 10 --max-time 30 -o /dev/null https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh \
   || die "Cannot reach GitHub over HTTPS; check DNS, proxy, and network access."
@@ -218,10 +267,19 @@ fi
 export PATH="${PIXI_HOME:-$HOME/.pixi}/bin:$PATH"
 command -v pixi &>/dev/null || die "pixi not found on PATH. Open a new terminal and re-run the script."
 
+# Old Pixi installations may still take precedence for the normal user.
+# Keep them until scripts and version requirements have been reviewed.
+for tool in nvim rsync rclone curl wget git; do
+  selected_path="$(command -v "$tool" 2>/dev/null || true)"
+  case "$selected_path" in
+    "${PIXI_HOME:-$HOME/.pixi}/"*|"$HOME/.local/"*)
+      warn "$tool still resolves to $selected_path. Native installation is ready; review the README migration notes before removing the user copy." ;;
+  esac
+done
+
 # --- Tools via pixi ---
 log "==> Checking tools via pixi"
 PIXI_TOOLS=(
-  nvim
   yazi
   fd-find
   zoxide
@@ -233,13 +291,9 @@ PIXI_TOOLS=(
   fzf
   resvg
   imagemagick
-  rsync
-  rclone
   universal-ctags
   tmux
-  wget
   unzip
-  curl
   python
 )
 
@@ -407,8 +461,7 @@ fi
 
 if diff -q "$SCRIPT_DIR/init.vim" "$NVIM_CONFIG" >/dev/null 2>&1; then
   log "==> Installing missing nvim plugins (this may take a moment)"
-  NVIM_BIN="${PIXI_HOME:-$HOME/.pixi}/bin/nvim"
-  NVIM=$(command -v "$NVIM_BIN" 2>/dev/null || command -v nvim 2>/dev/null || true)
+  NVIM="$NATIVE_NVIM"
   if [ -n "$NVIM" ]; then
     run_logged "$NVIM" --headless "+PlugInstall --sync" +qall \
       && log "    Plugins installed" \
@@ -470,6 +523,7 @@ if [ "${#WARNINGS[@]}" -gt 0 ]; then
   exit 1
 fi
 log "Don't forget to set MesloLGS NF as your terminal font."
+
 
 
 

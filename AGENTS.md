@@ -37,6 +37,8 @@ Add a body when needed to explain the reason or a material side effect.
 - Explain unfamiliar tools and consequential options when first introduced.
 - Keep contributor and automation instructions here. Link to references for
   deeper detail rather than turning the README into a manual.
+- Use generic hostnames and account names in public examples; do not include
+  real machine names or personal filesystem paths.
 - Document actual behavior. Do not claim checks or platform support were tested
   without evidence.
 
@@ -62,4 +64,5 @@ mocked checks as a successful fresh-machine installation.
 For documentation-only changes, compare commands, paths, flags, and shortcuts
 with the current source. Check relative links and confirm that repackaging
 preserves all original executable and configuration files unchanged.
+
 
