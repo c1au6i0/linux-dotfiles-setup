@@ -103,7 +103,7 @@ Alternatively, Kitty's SSH helper transfers its definition automatically. Run
 this **on your local computer inside Kitty**, using your own SSH host name:
 
 ```bash
-kitten ssh epsi-jon
+kitten ssh your-host
 ```
 
 For Ghostty, copy the definition **from your local computer** to the server:
