@@ -430,6 +430,35 @@ else
   log "    Written to $HOME/.zshrc"
 fi
 
+# --- tmux config ---
+log "==> Checking tmux.conf"
+TMUX_CONFIG="$HOME/.tmux.conf"
+# Reuse an existing user configuration rather than introduce a competing file.
+for candidate in "$HOME/.tmux.conf" "${XDG_CONFIG_HOME:-$HOME/.config}/tmux/tmux.conf" "$HOME/.config/tmux/tmux.conf"; do
+  if [ -e "$candidate" ] || [ -L "$candidate" ]; then
+    TMUX_CONFIG="$candidate"
+    break
+  fi
+done
+if diff -q "$SCRIPT_DIR/tmux.conf" "$TMUX_CONFIG" >/dev/null 2>&1; then
+  log "    Already up to date, skipping"
+elif [ -e "$TMUX_CONFIG" ] || [ -L "$TMUX_CONFIG" ]; then
+  if ask_overwrite "$TMUX_CONFIG" "Existing $TMUX_CONFIG found. Replace entire file (backup will be saved)?"; then
+    backup=$(mktemp "${TMUX_CONFIG}.bak.XXXXXXXX")
+    cp -p "$TMUX_CONFIG" "$backup"
+    log "    Existing tmux config backed up to $backup"
+    cp "$SCRIPT_DIR/tmux.conf" "$TMUX_CONFIG" \
+      || die "Could not copy tmux.conf to $TMUX_CONFIG. Check permissions."
+    log "    Written to $TMUX_CONFIG"
+  else
+    log "    Keeping $TMUX_CONFIG unchanged. Add the settings from $SCRIPT_DIR/tmux.conf manually if wanted."
+  fi
+else
+  cp "$SCRIPT_DIR/tmux.conf" "$TMUX_CONFIG" \
+    || die "Could not copy tmux.conf to $TMUX_CONFIG. Check permissions."
+  log "    Written to $TMUX_CONFIG"
+fi
+
 # --- nvim config ---
 log "==> Checking init.vim"
 NVIM_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/nvim/init.vim"
