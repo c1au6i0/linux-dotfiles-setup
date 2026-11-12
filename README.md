@@ -183,10 +183,51 @@ export DOTFILES_NO_NEOFETCH=1
 For Neovim, use `local_init.vim` for settings and `local_bundles.vim` for extra
 plugins inside `~/.config/nvim` (or `$XDG_CONFIG_HOME/nvim` if set).
 
+### tmux mouse and clipboard
+
+The installer adds mouse support and clipboard integration in `~/.tmux.conf`.
+If a user config already exists there, in `$XDG_CONFIG_HOME/tmux/tmux.conf`, or
+in `~/.config/tmux/tmux.conf`, it reuses that location (in that order).
+A different existing file is **kept by default**. The installer asks before
+replacing the entire file and saves a unique `.bak.*` backup if you accept.
+`-y` accepts that replacement automatically. Decline and add these lines yourself
+to retain your other tmux settings:
+
+```tmux
+set-option -g mouse on
+set -s set-clipboard on
+```
+
+The mouse wheel scrolls pane history; click a pane to select it and drag a border
+to resize it. Press `q` to leave history browsing (copy mode).
+Clipboard integration uses OSC 52, a terminal sequence that can also work over
+SSH. Your terminal must support and permit clipboard writes. `on` also lets
+applications inside tmux write to the clipboard, such as an editor using OSC 52.
+Use `external` instead if you only want tmux's own copying to update it.
+
+For an already running tmux session, apply the file from inside that session:
+
+```bash
+tmux source-file ~/.tmux.conf
+```
+
+If the installer reused a config under `~/.config` or `$XDG_CONFIG_HOME`, use the
+path printed by the installer instead of `~/.tmux.conf`.
+
+This reloads configuration without closing panes. Restarting Zsh alone does not
+reload tmux. The file persists across logins and reboots; to undo a replacement,
+restore its `.bak.*` copy and reload it. If the old file did not set these options,
+also run `tmux set-option -g mouse off` and `tmux set -s set-clipboard external`
+to restore tmux's defaults in the running server.
+
+See tmux's [clipboard guide](https://github.com/tmux/tmux/wiki/Clipboard) if copying
+does not reach your local clipboard.
+
 ## Changes, updates, and undo
 
-The script writes `~/.zshrc` and Neovim's `init.vim`. Before replacing a different
-existing file, it asks and saves a unique `.bak.*` copy beside it. It also installs
+The script writes `~/.zshrc`, the tmux config described above, and Neovim's
+`init.vim`. Before replacing a different existing file, it asks and saves a
+unique `.bak.*` copy beside it. It also installs
 tools, plugins, and fonts. Unless you use `--keep-shell`, it sets Zsh as your
 default login shell and may add it to `/etc/shells`.
 
